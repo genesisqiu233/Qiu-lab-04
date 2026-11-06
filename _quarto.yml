@@ -1,0 +1,8 @@
+project:
+  type: website
+  output-dir: docs
+website:
+  title: "Binary Logistic Regression Assignment"
+format:
+  html:
+    toc: true
