@@ -22,23 +22,24 @@ In this assignment, I will apply binary logistic regression analysis to investig
 
 My objectives are to:
 
-- **Specify and estimate** several plausible competing binary logistic regression models using `glmmTMB`.
+- Specify and estimate several plausible competing binary logistic regression models using `glmmTMB`.
 
-- **Compare nested models** using likelihood-ratio tests (χ²).
+- Compare nested models using likelihood-ratio tests (χ²).
 
-- **Evaluate overall model fit** using AIC and BIC.
+- Evaluate overall model fit using AIC and BIC.
 
-- **Examine model diagnostics** and assess assumptions relevant to binary logistic regression.
+- Examine model diagnostics and assess assumptions relevant to binary logistic regression.
 
-- **Select and interpret** a preferred model, including transforming log-odds coefficients into odds ratios.
+- Select and interpret a preferred model, including transforming log-odds coefficients into odds ratios.
 
-- **Report results reproducibly** using tables, figures, and Quarto.
+- Report results reproducibly using tables, figures, and Quarto.
 
 ------------------------------------------------------------------------
 
 ## 1. Load packages and prepare the data
 
-```{r, setup}
+```{r, prepare data}
+
 library(glmmTMB)
 library(dplyr)
 library(tidyr)
@@ -76,9 +77,7 @@ titanic <- titanic |>
 n <- nrow(titanic)
 ```
 
-This dataset contains complete-case data on **`r n` passengers**. The binary outcome variable is `Survived`: whether the passenger survived (`1`) or died (`0`) in the Titanic crash. Several other variables summarize characteristics of the Titanic passengers that could influence survival.
-
-For this lab assignment, I will focus on four variables:
+I will only complete-case data from this dataset, which include **n = `r n` passengers**. The binary outcome variable is `Survived`: whether the passenger survived (`1`) or died (`0`). I also include three predictor variables (`Sex`, `Pclass`, and `Age`) that would associate with the chance of survival during the Titanic disaster.
 
 | Variable | Description | Role |
 |------------------------|------------------------|------------------------|
@@ -123,7 +122,7 @@ descriptives |>
 
 ### 2.2 Cell counts for categorical variables
 
-#### Survival status (`Survived`)
+#### Survival status
 
 ```{r, survived counts}
 titanic |>
@@ -135,7 +134,7 @@ titanic |>
   )
 ```
 
-#### Passenger sex (`Sex`)
+#### Passenger sex
 
 ```{r, sex counts}
 titanic |>
@@ -147,7 +146,7 @@ titanic |>
   )
 ```
 
-#### Ticket class (`Pclass`)
+#### Ticket class
 
 ```{r, pclass counts}
 titanic |>
@@ -159,9 +158,11 @@ titanic |>
   )
 ```
 
-### Summary of exploratory patterns
+### 2.3 Summary of exploratory patterns
 
-Across the `r n` passengers with complete data, the average age was approximately `r round(mean(titanic$Age),2)` years (SD = `r round(sd(titanic$Age),2)`), ranging from infants (`r min(titanic$Age)` years) to elderly passengers (`r max(titanic$Age)` years). The cell counts across the categorical variables are not evenly distributed, which aligns with historical contexts and disaster outcomes. Specifically, a majority of passengers in the sample died (`r sum(titanic$Survived == 0)` died vs. `r sum(titanic$Survived == 1)` survived), men outnumbered women in a large margin (`r sum(titanic$Sex == "male")` males vs. `r sum(titanic$Sex == "female")` females), and Third Class passengers made up nearly half of the sample (`r sum(titanic$Pclass == 3)` in Third Class compared to `r sum(titanic$Pclass == 1)` in First Class and `r sum(titanic$Pclass == 2)` in Second Class). Despite these imbalances, every category contains well over the minimum number of observations needed to reliably estimate binary logistic regression parameters.
+Across the `r n` passengers with complete data, the average age was approximately `r round(mean(titanic$Age),2)` years (SD = `r round(sd(titanic$Age),2)` years), ranging from infants (`r min(titanic$Age)` years) to elderly (`r max(titanic$Age)` years). The cell counts across the categorical variables are not evenly distributed, which align with historical contexts and disaster outcomes. Specifically, male passengers outnumbered females (`r sum(titanic$Sex == "male")` males vs. `r sum(titanic$Sex == "female")` females), , while Third-Class passengers made up nearly half of the sample (`r sum(titanic$Pclass == 3)` in Third-Class compared to `r sum(titanic$Pclass == 1)` in First-Class and `r sum(titanic$Pclass == 2)` in Second-Class), and most importantly, a majority of passengers died (`r sum(titanic$Survived == 0)` died vs. `r sum(titanic$Survived == 1)` survived).
+
+Despite these imbalances, every category contains well over the minimum number of observations needed to reliably estimate binary logistic regression parameters.
 
 ------------------------------------------------------------------------
 
@@ -173,11 +174,11 @@ Across the `r n` passengers with complete data, the average age was approximatel
 
 Based on historical context from 1912 and maritime evacuation norms, I expect all three predictors to be meaningfully associated with survival:
 
-- **Sex:** Under the "women and children first" maritime evacuation protocol enforced during the 1912 disaster, female passengers were given priority access to lifeboats. Therefore, I predict that male passengers had substantially lower odds of surviving than female passengers.
+- **Sex:** Under the "women and children first" doctrine enforced during the 1912 crash, female passengers were given priority access to lifeboats. Therefore, I predict that male passengers had substantially lower odds of surviving than female passengers.
 
-- **Pclass:** Ticket class serves as a proxy for SES. First Class passengers had cabins located on upper decks closer to the lifeboats and received preferential treatment during evacuation, whereas Third Class passengers were quartered on lower decks further from the boat deck. I predict that Second and Third Class passengers had lower odds of survival relative to First Class passengers.
+- **Pclass:** Ticket class serves as a proxy for SES. First-Class passengers had cabins located on upper decks closer to the lifeboats and received preferential treatment during evacuation, whereas Third-Class passengers lived on lower decks experienced flooding first and needed more time/effort to reach the lifeboats. I predict that Second and Third-Class passengers had lower odds of survival relative to First-Class passengers.
 
-- **Age:** Because young children were prioritized alongside women when loading lifeboats and older passengers may have faced greater physical barriers reaching the upper decks in freezing conditions, I predict that older age is associated with lower odds of surviving, holding sex and ticket class constant.
+- **Age:** Because young children were prioritized alongside women when accessing lifeboats and older passengers may have faced greater physical barriers reaching the upper decks in difficult conditions, I predict that older age is associated with lower odds of surviving, and lower age is associated with higher odds of surviving, holding sex and ticket class constant.
 
 These are predictions about statistical associations in observational data, not experimental causal effects.
 
@@ -229,15 +230,15 @@ summary(mod3)
 confint(mod3)
 ```
 
-### 3.3. How the interpretation of the intercept changes across models
+### 3.3. The interpretation of the intercept changes across models
 
-In binary logistic regression, the intercept represents the predicted **log-odds** of the outcome (`Survived = 1`) when all predictors in the model equal zero or are at their reference levels. As predictors are added across my models, the reference group defined by the intercept becomes increasingly specific:
+In binary logistic regression, the intercept represents the predicted **log-odds** of the outcome (`Survived = 1`) when all predictors in the model equal zero. However, as more predictors are added to my models, the reference group defined by the intercept becomes increasingly specific:
 
 - In **mod1 (`Survived ~ Sex`)**, `"female"` is the reference category for `Sex`. The intercept (`r round(fixef(mod1)$cond[["(Intercept)"]], 3)`) represents the estimated log-odds of survival for **female passengers** across all ticket classes and ages.
 
-- In **mod2 (`Survived ~ Sex + Pclass`)**, `Pclass = 1` (First Class) is the reference category for ticket class. The intercept increases to `r round(fixef(mod2)$cond[["(Intercept)"]], 3)` and now represents the estimated log-odds of survival specifically for **female passengers in First Class**.
+- In **mod2 (`Survived ~ Sex + Pclass`)**, `Pclass = 1` (First Class) is the reference category for ticket class. The intercept (`r round(fixef(mod2)$cond[["(Intercept)"]], 3)`) now represents the estimated log-odds of survival specifically for **female First-Class passengers**.
 
-- In **mod3 (`Survived ~ Sex + Pclass + Age`)**, the continuous predictor `Age` is added. The intercept increases further to `r round(fixef(mod3)$cond[["(Intercept)"]], 3)` and now represents the estimated log-odds of survival for a **female passenger in First Class whose age is 0 years** (a newborn female infant).
+- In **mod3 (`Survived ~ Sex + Pclass + Age`)**, the continuous predictor `Age` is added. The intercept (`r round(fixef(mod3)$cond[["(Intercept)"]], 3)`) now represents the estimated log-odds of survival for a **female passenger in First-Class whose age is 0**.
 
 ------------------------------------------------------------------------
 
@@ -247,7 +248,7 @@ I will evaluate the four competing models using three main performance metrics:
 
 - **AIC (Akaike Information Criterion):** Evaluates model fit while penalizing model complexity. Lower values indicate a preferred balance between fit and complexity.
 
-- **BIC (Bayesian Information Criterion):** Similar to AIC, but applies a stronger penalty for model complexity. Lower values are preferred.
+- **BIC (Bayesian Information Criterion):** Similar to AIC, but applies a stronger penalty for model complexity. Lower values are preferred, same as AIC.
 
 - **Likelihood-ratio test (χ²):** Tests whether adding predictors significantly improves model fit relative to the preceding nested model. A statistically significant p-value (p < .05) indicates that the additional predictors significantly improve model fit.
 
@@ -275,7 +276,7 @@ tests <- tests |>
 
 ### 4.2. Extract nested model-level performance statistics
 
-The `glance()` function from the `broom.mixed` package returns a one-row data frame containing model-level statistics for each fitted model.
+The `glance()` function from the `broom.mixed` package returns a one-row data frame containing model-level statistics for each fitted model that I need.
 
 ```{r, extract model metrics}
 glance0 <- broom.mixed::glance(mod0)
@@ -369,9 +370,7 @@ comparison_table |>
 
 Considering both model fit and complexity, **mod3 (`Survived ~ Sex + Pclass + Age`)** provides the best fit to the Titanic survival data. As predictors are added sequentially from `mod0` to `mod3`, both AIC and BIC decrease substantially at every step: AIC drops from `r round(AIC(mod0), 2)` (`mod0`) to `r round(AIC(mod1), 2)` (`mod1`), `r round(AIC(mod2), 2)` (`mod2`), and finally `r round(AIC(mod3), 2)` (`mod3`), while BIC similarly drops from `r round(BIC(mod0), 2)` (`mod0`) to `r round(BIC(mod1), 2)` (`mod1`), `r round(BIC(mod2), 2)` (`mod2`), and `r round(BIC(mod3), 2)` (`mod3`). Furthermore, the nested likelihood-ratio tests indicate that every predictor addition produces a statistically significant improvement in model fit: adding `Sex` to the null model significantly improves fit (χ²(1) = `r round(comparison_table$Nested.Chisq.stat[2], 2)`, p < .001), adding `Pclass` significantly improves fit beyond `Sex` (χ²(2) = `r round(comparison_table$Nested.Chisq.stat[3], 2)`, p < .001), and adding `Age` significantly improves fit beyond `Sex` and `Pclass` (χ²(1) = `r round(comparison_table$Nested.Chisq.stat[4], 2)`, p < .001). Here, AIC, BIC, and the likelihood-ratio tests all support the exact same conclusion because the explanatory contribution of each added variable is large enough to easily overcome both the standard complexity penalty of AIC and the stricter sample-size penalty of BIC. Overall, this pattern demonstrates that while passenger sex accounts for the single largest reduction in deviance, `Pclass` and `Age` each explain unique, meaningful variation in survival outcomes.
 
-### Additional performance comparison
-
-The `performance` package also provides a convenient way to compare fitted models:
+The `performance` package also provides a convenient way for me to compare fitted models:
 
 ```{r, performance}
 performance_comparison <- compare_performance(
@@ -417,19 +416,21 @@ The provisionally selected model is **`r selected_name`**, with AIC = **`r round
 I now examine five key diagnostic criteria for `mod3`:
 
 1.  **Linearity on the log-odds scale**
-2.  **No catastrophic collinearity**
-3.  **No complete separation**
-4.  **No influential outliers**
-5.  **Events per predictor**
 
-### 5.1. Linearity on the logit scale (`DHARMa`)
+2.  **No substantive collinearity**
+
+3.  **No complete separation**
+
+4.  **No influential observations**
+
+5.  **Sufficient events per predictor**
+
+### 5.1. Linearity on the logit scale
 
 ```{r, dharma sim}
-set.seed(9041)
+set.seed(101)
 res_mod3 <- simulateResiduals(selected_model, n = 500, plot = FALSE)
 ```
-
-#### The default DHARMa diagnostic plot {.nostretch}
 
 ```{r, dharma plot}
 #| fig-height: 5.6
@@ -451,21 +452,23 @@ vif_plot
 
 I check for symptoms of complete or quasi-complete separation, which include:
 
-- Unusually large coefficient estimates or standard errors (e.g., SE > 5)
-- `glmmTMB` convergence warnings
+- Unusually large coefficient estimates or standard errors (SE > 5)
+
+- Convergence warnings from `glmmTMB`
+
 - Fitted probabilities of exactly 0 or 1 for specific predictor combinations
 
-Inspecting `mod3` reveals small, stable standard errors (all SEs < 0.40) and no convergence warnings, confirming that complete separation is not present.
+Inspecting `mod3` reveals small, stable standard errors (SE < 0.5) and no convergence warnings, confirming that complete separation is not present.
 
-### 5.4. Influential observations and outliers
+### 5.4. Influential observations
 
-Because traditional Cook's distance is not directly implemented for `glmmTMB`, I use `DHARMa::testOutliers()` to test for overly influential observations or simulation outliers:
+Because traditional Cook's distance is not directly implemented for `glmmTMB`, I use `DHARMa::testOutliers()` to test for overly influential observations:
 
 ```{r, outliers}
 testOutliers(res_mod3)
 ```
 
-### 5.5. Events per predictor
+### 5.5. Sufficient events per predictor
 
 A standard working guideline for binary logistic regression is to have at least **10 events (and 10 non-events) per estimated coefficient**.
 
@@ -476,23 +479,34 @@ n_coef <- length(fixef(selected_model)$cond)
 epv <- round(min(n_event, n_nonevent) / n_coef, 1)
 ```
 
-In this dataset, there are **`r n_event` survivors (events)** and **`r n_nonevent` non-survivors (non-events)** across **`r n_coef` model coefficients** (including the intercept and two dummy variables for `Pclass`), yielding **`r epv` events per parameter**—far exceeding the minimum threshold of 10.
+In this dataset, there are **`r n_event` survivors (events)** and **`r n_nonevent` non-survivors (non-events)** across **`r n_coef` model coefficients** (including the intercept and two dummy variables for `Pclass`), yielding **`r epv` events per parameter**, far exceeding the minimum threshold of 10 required.
 
 ### 5.6. Summary of diagnostic findings
 
-Overall, the diagnostic checks indicate that the assumptions of binary logistic regression are well satisfied for `mod3`. First, collinearity is negligible: Variance Inflation Factors (VIFs) for `Sex`, `Pclass`, and `Age` are all near 1.0 (well below the conservative threshold of 5), indicating that each predictor contributes independent information and standard errors are not inflated. Second, there is no evidence of complete separation (all coefficients and standard errors are finite and small) and the sample size provides `r epv` events per parameter, ensuring stable maximum-likelihood estimation. Third, `DHARMa::testOutliers()` identifies no statistically significant outlier problem (p > .05), and the Q–Q plot of simulated scaled residuals closely tracks the uniform expectation line (non-significant Kolmogorov–Smirnov dispersion and uniformity tests). While the right-hand `DHARMa` residual-versus-predicted quantile plot shows minor local deviations across predicted probability quantiles—likely reflecting slight non-linearities or unmodeled interactions between sex and ticket class (for example, survival was particularly high for women in First and Second Class compared to Third Class)—these minor deviations do not compromise overall distributional uniformity or parameter stability. Consequently, I can retain and interpret `mod3` with high confidence.
+Overall, the diagnostic checks indicate that the assumptions of binary logistic regression are well satisfied for `mod3`. 
+
+First, collinearity is negligible as Variance Inflation Factors (VIFs) for `Sex`, `Pclass`, and `Age` are all well below the conservative threshold of 5, indicating that each predictor contributes independent information and also standard errors are not inflated. 
+
+Second, there is no evidence of complete separation (all coefficients and standard errors are finite and small) and the sample size provides `r epv` events per parameter, ensuring stable maximum-likelihood estimation. 
+Third, `DHARMa::testOutliers()` identifies no statistically significant observations (p > .05), and the Q–Q plot of simulated scaled residuals closely tracks the uniform expectation line (non-significant Kolmogorov–Smirnov dispersion and uniformity tests). 
+
+While the right-hand `DHARMa` residual-versus-predicted quantile plot shows minor local deviations across predicted probability quantiles which I believe it reflects slight unmodeled interactions between sex and ticket class (for example, survival was particularly high for women in First and Second-Class compared to Third-Class). 
+
+These minor deviations do not compromise overall distributional uniformity or parameter stability. Consequently, I can retain and interpret `mod3` with high confidence.
 
 ------------------------------------------------------------------------
 
-## 6. Select and report your preferred model
+## 6. Select and report preferred model
 
-### 6.1. Justification for preferred model (`mod3`)
+### 6.1. Justification for my preferred model
 
-Based on statistical fit, information criteria, diagnostics, and substantive theory, **mod3 (`Survived ~ Sex + Pclass + Age`)** is selected as the preferred model. Statistically, adding `Age` to `Sex` and `Pclass` yielded a highly significant likelihood-ratio test (χ²(1) = `r round(comparison_table$Nested.Chisq.stat[4], 2)`, p < .001) and achieved the lowest AIC (`r round(AIC(mod3), 2)`) and lowest BIC (`r round(BIC(mod3), 2)`) among all four candidate models. Although `mod3` is the most complex specification tested, estimating five parameters with n = `r n` observations remains parsimonious (`r epv` events per parameter) and introduced zero collinearity or separation issues. Substantively, retaining all three predictors is essential because historical evacuation practices on the Titanic simultaneously depended on gender, age, and SES tied to passenger ticket class.
+Based on statistical fit, information criteria, diagnostics, and substantive theory, **mod3 (`Survived ~ Sex + Pclass + Age`)** is selected as my preferred model. 
+
+Statistically, adding `Age` to `Sex` and `Pclass` yielded a highly significant likelihood-ratio test score (χ²(1) = `r round(comparison_table$Nested.Chisq.stat[4], 2)`, p < .001) and had the lowest AIC (`r round(AIC(mod3), 2)`) and BIC (`r round(BIC(mod3), 2)`) among all four candidate models. Although `mod3` is the most complex model tested, estimating five parameters with n = `r n` observations remains parsimonious (`r epv` events per parameter) and introduced zero collinearity or separation.
 
 ### 6.2. Extract binary logistic regression coefficients
 
-I use `broom.mixed::tidy()` to extract the unstandardized log-odds coefficients and 95% confidence intervals from `selected_model` (`mod3`), and compute the corresponding odds ratios (`or`) and 95% odds-ratio confidence intervals (`or.conf.low`, `or.conf.high`) for dynamic inline reporting.
+I use `broom.mixed::tidy()` to extract the unstandardized log-odds coefficients and 95% confidence intervals from `selected_model` (`mod3`), and compute the corresponding odds ratios (`or`) and 95% odds-ratio confidence intervals (`or.conf.low`, `or.conf.high`) for reporting.
 
 ```{r, extract results}
 coefficient_results <- broom.mixed::tidy(
@@ -600,7 +614,7 @@ selected_row |>
 fixef(selected_model)
 ```
 
-Exponentiating the coefficients transforms them from the **log-odds** scale into **odds ratios (ORs)**, and exponentiating their confidence limits gives the 95% confidence intervals for the odds ratios:
+I back-transformed the coefficients from the **log-odds** into **odds ratios**, and used the exponentiation function to produce the 95% confidence intervals for the odds ratios:
 
 ```{r, orexp}
 exp(fixef(selected_model)$cond)
@@ -612,19 +626,25 @@ or_ci
 
 Every predictor in `mod3` is interpreted while holding the remaining predictors in the model constant:
 
-- **Sex (`male` vs. reference group `female`):** Holding ticket class (`Pclass`) and `Age` constant, being male is associated with a decrease in the **log-odds** of surviving the Titanic crash of `r round(abs(coefficient_results |> filter(term == "Sexmale") |> pull(estimate)), 2)` (b = `r round(coefficient_results |> filter(term == "Sexmale") |> pull(estimate), 2)`, SE = `r round(coefficient_results |> filter(term == "Sexmale") |> pull(std.error), 2)`, p < .001). On the **odds-ratio** scale, holding ticket class and age constant, male passengers had `r round(coefficient_results |> filter(term == "Sexmale") |> pull(or), 2)` times the odds of surviving compared to female passengers (95% CI \[`r round(coefficient_results |> filter(term == "Sexmale") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Sexmale") |> pull(or.conf.high), 2)`\]), meaning men's odds of survival were approximately `r round((1 - (coefficient_results |> filter(term == "Sexmale") |> pull(or))) * 100, 1)`% lower than women's.
+- **Sex (`male` vs. reference group `female`):** Holding ticket class (`Pclass`) and `Age` constant, being male is associated with a decrease in the **log-odds** of surviving the Titanic crash of `r round(abs(coefficient_results |> filter(term == "Sexmale") |> pull(estimate)), 2)` (b = `r round(coefficient_results |> filter(term == "Sexmale") |> pull(estimate), 2)`, SE = `r round(coefficient_results |> filter(term == "Sexmale") |> pull(std.error), 2)`, p < .001). On the **odds-ratio** scale, holding ticket class and age constant, male passengers had `r round(coefficient_results |> filter(term == "Sexmale") |> pull(or), 2)` times the odds of surviving compared to female passengers (95% CI \[`r round(coefficient_results |> filter(term == "Sexmale") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Sexmale") |> pull(or.conf.high), 2)`\]), meaning man's odds of survival were `r round((1 - (coefficient_results |> filter(term == "Sexmale") |> pull(or))) * 100, 1)`% lower than woman's.
 
-- **Second Class (`Pclass2` vs. reference group `Pclass1` [First Class]):** Holding passenger `Sex` and `Age` constant, traveling in Second Class rather than First Class is associated with a decrease in the **log-odds** of survival of `r round(abs(coefficient_results |> filter(term == "Pclass2") |> pull(estimate)), 2)` (b = `r round(coefficient_results |> filter(term == "Pclass2") |> pull(estimate), 2)`, SE = `r round(coefficient_results |> filter(term == "Pclass2") |> pull(std.error), 2)`, p < .001). Transformed into an **odds ratio**, holding sex and age constant, Second Class passengers had `r round(coefficient_results |> filter(term == "Pclass2") |> pull(or), 2)` times the odds of surviving compared to First Class passengers (95% CI \[`r round(coefficient_results |> filter(term == "Pclass2") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Pclass2") |> pull(or.conf.high), 2)`\]), representing a `r round((1 - (coefficient_results |> filter(term == "Pclass2") |> pull(or))) * 100, 1)`% reduction in survival odds.
+- **Second-Class passenger (`Pclass2` vs. reference group `Pclass1` [First Class]):** Holding passenger `Sex` and `Age` constant, traveling in Second-Class rather than First-Class is associated with a decrease in the **log-odds** of survival of `r round(abs(coefficient_results |> filter(term == "Pclass2") |> pull(estimate)), 2)` (b = `r round(coefficient_results |> filter(term == "Pclass2") |> pull(estimate), 2)`, SE = `r round(coefficient_results |> filter(term == "Pclass2") |> pull(std.error), 2)`, p < .001). Transformed into an **odds ratio**, holding sex and age constant, Second-Class passengers had `r round(coefficient_results |> filter(term == "Pclass2") |> pull(or), 2)` times the odds of surviving compared to First-Class passengers (95% CI \[`r round(coefficient_results |> filter(term == "Pclass2") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Pclass2") |> pull(or.conf.high), 2)`\]), representing a `r round((1 - (coefficient_results |> filter(term == "Pclass2") |> pull(or))) * 100, 1)`% reduction in survival odds.
 
-- **Third Class (`Pclass3` vs. reference group `Pclass1` [First Class]):** Holding passenger `Sex` and `Age` constant, traveling in Third Class rather than First Class is associated with a decrease in the **log-odds** of survival of `r round(abs(coefficient_results |> filter(term == "Pclass3") |> pull(estimate)), 2)` (b = `r round(coefficient_results |> filter(term == "Pclass3") |> pull(estimate), 2)`, SE = `r round(coefficient_results |> filter(term == "Pclass3") |> pull(std.error), 2)`, p < .001). On the **odds-ratio** scale, holding sex and age constant, Third Class passengers had `r round(coefficient_results |> filter(term == "Pclass3") |> pull(or), 2)` times the odds of surviving compared to First Class passengers (95% CI \[`r round(coefficient_results |> filter(term == "Pclass3") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Pclass3") |> pull(or.conf.high), 2)`\]), corresponding to a `r round((1 - (coefficient_results |> filter(term == "Pclass3") |> pull(or))) * 100, 1)`% reduction in the odds of survival.
+- **Third-Class passengers (`Pclass3` vs. reference group `Pclass1` [First Class]):** Holding passenger `Sex` and `Age` constant, traveling in Third-Class rather than First-Class is associated with a decrease in the **log-odds** of survival of `r round(abs(coefficient_results |> filter(term == "Pclass3") |> pull(estimate)), 2)` (b = `r round(coefficient_results |> filter(term == "Pclass3") |> pull(estimate), 2)`, SE = `r round(coefficient_results |> filter(term == "Pclass3") |> pull(std.error), 2)`, p < .001). On the **odds-ratio** scale, holding sex and age constant, Third-Class passengers had `r round(coefficient_results |> filter(term == "Pclass3") |> pull(or), 2)` times the odds of surviving compared to First-Class passengers (95% CI \[`r round(coefficient_results |> filter(term == "Pclass3") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Pclass3") |> pull(or.conf.high), 2)`\]), corresponding to a `r round((1 - (coefficient_results |> filter(term == "Pclass3") |> pull(or))) * 100, 1)`% reduction in the odds of survival.
 
 - **Age (`Age`):** Holding passenger `Sex` and ticket class (`Pclass`) constant, each one-year increase in age is associated with a decrease in the **log-odds** of survival of `r round(abs(coefficient_results |> filter(term == "Age") |> pull(estimate)), 2)` (b = `r round(coefficient_results |> filter(term == "Age") |> pull(estimate), 2)`, SE = `r round(coefficient_results |> filter(term == "Age") |> pull(std.error), 2)`, p < .001). As an **odds ratio**, holding sex and ticket class constant, a one-year increase in age is associated with `r round(coefficient_results |> filter(term == "Age") |> pull(or), 2)` times the odds of surviving (95% CI \[`r round(coefficient_results |> filter(term == "Age") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Age") |> pull(or.conf.high), 2)`\]), or a `r round((1 - (coefficient_results |> filter(term == "Age") |> pull(or))) * 100, 1)`% decrease in the odds of survival per additional year of age.
 
 ### 7.3. Overarching summary paragraph of results
 
-To investigate the demographic and socioeconomic factors associated with surviving the sinking of the Titanic (n = `r n`), I estimated and compared a series of four nested binary logistic regression models using `glmmTMB`. Model comparisons using likelihood-ratio tests, AIC, and BIC consistently supported the full three-predictor model (`mod3: Survived ~ Sex + Pclass + Age`), which significantly improved model fit over simpler specifications (Δχ²(1) = `r round(comparison_table$Nested.Chisq.stat[4], 2)`, p < .001; AIC = `r round(AIC(selected_model), 2)`, BIC = `r round(BIC(selected_model), 2)`). In the preferred model, all three predictors were statistically significant and in the predicted directions. Controlling for ticket class and age, male passengers had substantially lower odds of surviving than female passengers, OR = `r round(coefficient_results |> filter(term == "Sexmale") |> pull(or), 2)`, 95% CI \[`r round(coefficient_results |> filter(term == "Sexmale") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Sexmale") |> pull(or.conf.high), 2)`\], p < .001. Socioeconomic status (measured via ticket class) was also strongly associated with survival: holding sex and age constant, passengers in Second Class (OR = `r round(coefficient_results |> filter(term == "Pclass2") |> pull(or), 2)`, 95% CI \[`r round(coefficient_results |> filter(term == "Pclass2") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Pclass2") |> pull(or.conf.high), 2)`\], p < .001) and Third Class (OR = `r round(coefficient_results |> filter(term == "Pclass3") |> pull(or), 2)`, 95% CI \[`r round(coefficient_results |> filter(term == "Pclass3") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Pclass3") |> pull(or.conf.high), 2)`\], p < .001) had markedly lower odds of surviving compared to First Class passengers. Finally, holding sex and ticket class constant, older age was associated with lower odds of surviving, OR = `r round(coefficient_results |> filter(term == "Age") |> pull(or), 2)` per year, 95% CI \[`r round(coefficient_results |> filter(term == "Age") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Age") |> pull(or.conf.high), 2)`\], p < .001.
+To investigate the demographic and socioeconomic factors associated with surviving the sinking of the Titanic (n = `r n`), I estimated and compared a series of four nested binary logistic regression models using `glmmTMB`. Model comparisons using likelihood-ratio tests, AIC, and BIC consistently supported the full three-predictor model (`mod3: Survived ~ Sex + Pclass + Age`), which significantly improved model fit over simpler specifications (Δχ²(1) = `r round(comparison_table$Nested.Chisq.stat[4], 2)`, p < .001; AIC = `r round(AIC(selected_model), 2)`, BIC = `r round(BIC(selected_model), 2)`). In the preferred model, all three predictors were statistically significant and in the predicted directions. 
 
-### 7.4. Visualizing results as predicted probabilities (`ggeffects`)
+Controlling for ticket class and age, male passengers had substantially lower odds of surviving than female passengers, OR = `r round(coefficient_results |> filter(term == "Sexmale") |> pull(or), 2)`, 95% CI \[`r round(coefficient_results |> filter(term == "Sexmale") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Sexmale") |> pull(or.conf.high), 2)`\], p < .001. 
+
+Socioeconomic status (measured via ticket class) was also strongly associated with survival: holding sex and age constant, passengers in Second-Class (OR = `r round(coefficient_results |> filter(term == "Pclass2") |> pull(or), 2)`, 95% CI \[`r round(coefficient_results |> filter(term == "Pclass2") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Pclass2") |> pull(or.conf.high), 2)`\], p < .001) and Third-Class (OR = `r round(coefficient_results |> filter(term == "Pclass3") |> pull(or), 2)`, 95% CI \[`r round(coefficient_results |> filter(term == "Pclass3") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Pclass3") |> pull(or.conf.high), 2)`\], p < .001) had markedly lower odds of surviving compared to First-Class passengers. 
+
+Finally, holding sex and ticket class constant, older age was associated with lower odds of surviving, OR = `r round(coefficient_results |> filter(term == "Age") |> pull(or), 2)` per year, 95% CI \[`r round(coefficient_results |> filter(term == "Age") |> pull(or.conf.low), 2)`, `r round(coefficient_results |> filter(term == "Age") |> pull(or.conf.high), 2)`\], p < .001.
+
+### 7.4. Visualizing results as predicted probabilities
 
 I can visualize the associations between my predictors and `Survived` using **predicted probabilities** calculated with `ggeffects::ggpredict()` and plotted with `ggplot2`.
 
@@ -646,7 +666,7 @@ ggplot(pred_age, aes(x = x, y = predicted)) +
   theme_classic()
 ```
 
-#### Predicted probability of survival across Ticket Class (`Pclass`)
+#### Predicted probability of survival across Ticket Class
 
 ```{r, pred pclass}
 #| fig-height: 3.2
@@ -655,10 +675,10 @@ pred_pclass <- ggpredict(selected_model, terms = "Pclass")
 ggplot(pred_pclass, aes(x = x, y = predicted)) +
   geom_point(size = 3) +
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.15, linewidth = 0.9) +
-  scale_x_discrete(labels = c("1" = "First Class", "2" = "Second Class", "3" = "Third Class")) +
+  scale_x_discrete(labels = c("1" = "First-Class", "2" = "Second-Class", "3" = "Third-Class")) +
   scale_y_continuous(limits = c(0, 1)) +
   labs(
-    x = "Ticket Class (SES Proxy)",
+    x = "Ticket Class",
     y = "Predicted Probability of Survival",
     title = "Predicted Probability of Titanic Survival by Ticket Class"
   ) +
@@ -669,22 +689,22 @@ ggplot(pred_pclass, aes(x = x, y = predicted)) +
 
 ## 8. Discuss findings and limitations
 
-### Substantive conclusions on relative predictor importance
+### 8.1 Substantive conclusions on relative predictor importance
 
-The results of this analysis provide clear evidence that survival during the sinking of the Titanic was structured by a hierarchy of gender norms, socioeconomic status, and age:
+The results of my analysis provide clear evidence that survival during the sinking of the Titanic was associated with sex, ticket class (SES), and age:
 
-- **Passenger Sex (`Sex`):** Sex was the single strongest predictor of survival, accounting for the largest reduction in model deviance (Δχ² = `r round(comparison_table$Nested.Chisq.stat[2], 2)`). Holding ticket class and age constant, men had only `r round(coefficient_results |> filter(term == "Sexmale") |> pull(or), 2)` times the odds of surviving compared to women, reflecting strict adherence to the "women and children first" evacuation protocol.
+- **Passenger Sex:** Sex was the single strongest predictor of survival, accounting for the largest reduction in model deviance (Δχ² = `r round(comparison_table$Nested.Chisq.stat[2], 2)`). Holding ticket class and age constant, man had only `r round(coefficient_results |> filter(term == "Sexmale") |> pull(or), 2)` times the odds of surviving compared to woman, reflecting strict following of the "women and children first" principle.
 
-- **Ticket Class (`Pclass`):** Socioeconomic status was the second most influential factor (Δχ² = `r round(comparison_table$Nested.Chisq.stat[3], 2)`). Even when comparing passengers of the same sex and age, Second Class passengers had `r round((1 - (coefficient_results |> filter(term == "Pclass2") |> pull(or))) * 100, 1)`% lower odds of survival and Third Class passengers had `r round((1 - (coefficient_results |> filter(term == "Pclass3") |> pull(or))) * 100, 1)`% lower odds of survival than First Class passengers. Physical proximity to the boat deck and social privilege gave wealthy passengers a decisive survival advantage.
+- **Ticket Class (SES):** Ticket class was the second most influential factor (Δχ² = `r round(comparison_table$Nested.Chisq.stat[3], 2)`). Even when comparing passengers of the same sex and age, Second-Class passengers had `r round((1 - (coefficient_results |> filter(term == "Pclass2") |> pull(or))) * 100, 1)`% lower odds of survival and Third-Class passengers had `r round((1 - (coefficient_results |> filter(term == "Pclass3") |> pull(or))) * 100, 1)`% lower odds of survival than First-Class passengers. Physical proximity to the boat deck and social privilege gave wealthy passengers a decisive survival advantage.
 
-- **Age (`Age`):** Age provided a smaller but still statistically significant incremental contribution (Δχ² = `r round(comparison_table$Nested.Chisq.stat[4], 2)`). Each additional year of age reduced the odds of survival by `r round((1 - (coefficient_results |> filter(term == "Age") |> pull(or))) * 100, 1)`% holding sex and class constant, consistent with children receiving priority access to lifeboats and older adults facing greater physical challenges during the evacuation.
+- **Age:** Age provided a smaller but still statistically significant incremental contribution (Δχ² = `r round(comparison_table$Nested.Chisq.stat[4], 2)`). Each additional year of age reduced the odds of survival by `r round((1 - (coefficient_results |> filter(term == "Age") |> pull(or))) * 100, 1)`% holding sex and class constant, consistent with children receiving priority access to lifeboats and older adults facing greater physical challenges during the evacuation.
 
-### Limitations
+### 8.2 Limitations
 
-Several methodological and substantive limitations should be kept in mind when interpreting my findings:
+Several methodological and substantive limitations are presented in my results:
 
-- **Missing data and complete-case restriction:** Filtering the `titanic_train` dataset via `drop_na()` excluded 177 passengers who were missing `Age` records (reducing the sample from 891 to `r n` passengers). Because Third Class passengers were disproportionately more likely to have unrecorded ages, complete-case analysis may introduce selection bias if missingness was not completely at random.
+- **Missing data and complete-case restriction:** Filtering the `titanic_train` dataset via `drop_na()` excluded 177 passengers who were missing `Age` records (reducing the sample from 891 to `r n` passengers). Because Third-Class passengers were disproportionately more likely to have missing age records, complete-case analysis may introduce selection bias because the missingness wasn't random.
 
-- **Additive main-effects specification:** My preferred model (`mod3`) assumes additive effects on the logit scale (`Survived ~ Sex + Pclass + Age`). Historical records suggest that the benefit of being female was substantially weaker in Third Class than in First or Second Class; future analyses could test a `Sex * Pclass` interaction term to capture this moderation effect.
+- **Additive main-effects specification:** My preferred model (`mod3`) assumes additive effects on the logit scale (`Survived ~ Sex + Pclass + Age`). Historical records suggest that the benefit of being female was substantially weaker in Third-Class than in First or Second-Class. Therefore, I need further analyses to test the `Sex * Pclass` interaction effect of moderation.
 
-- **Unmeasured confounders:** Other important passenger characteristics such as cabin location, number of siblings/spouses (`SibSp`) or parents/children (`Parch`) aboard, and language barriers were not included in my models and may partially confound the observed associations of ticket class and age with survival.
+- **Unmeasured confounders:** Other important passenger characteristics such as cabin location, number of siblings/spouses or parents/children aboard, and language barriers were not included in my models and may partially confound the observed associations of ticket class and age with survival.
